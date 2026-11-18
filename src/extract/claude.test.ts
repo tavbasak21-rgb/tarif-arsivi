@@ -166,6 +166,25 @@ describe("extractRecipe — hatalar", () => {
     expectNoKey(r);
   });
 
+  it("auth hatasında sunucunun kodu ve kısa açıklaması mesaja eklenir, anahtar eklenmez", async () => {
+    const body = { type: "error", error: { type: "authentication_error", message: `invalid x-api-key ${FAKE_KEY}` } };
+    const r = await run(new Anthropic.AuthenticationError(401, body, "401", headers));
+    if (r.ok) throw new Error();
+    expect(r.message).toContain("401");
+    expect(r.message).toContain("authentication_error");
+    expect(r.message).toContain("invalid x-api-key");
+    expectNoKey(r);
+  });
+
+  it("403 izin hatasında sunucunun açıklaması mesajda görünür", async () => {
+    const body = { type: "error", error: { type: "permission_error", message: "This model is not available for your organization." } };
+    const r = await run(new Anthropic.PermissionDeniedError(403, body, "403", headers));
+    if (r.ok) throw new Error();
+    expect(r.message).toContain("403");
+    expect(r.message).toContain("permission_error");
+    expect(r.message).toContain("not available");
+  });
+
   it("PermissionDeniedError → auth", async () => {
     const r = await run(new Anthropic.PermissionDeniedError(403, { type: "error" }, "forbidden", headers));
     expect(r).toMatchObject({ ok: false, reason: "auth" });

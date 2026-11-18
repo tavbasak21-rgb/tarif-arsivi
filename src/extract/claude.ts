@@ -53,9 +53,19 @@ function fail(reason: ExtractFailureReason, message: string): ExtractResult {
 }
 
 /** SDK hatasını kullanıcıya gösterilecek Türkçe sonuca çevirir. Anahtar ya da ham hata metni mesaja konmaz. */
+/** Sunucunun hata kodu ve kısa açıklaması; anahtara benzeyen her şey silinir. Teşhis için mesaja eklenir. */
+function serverDetail(err: InstanceType<typeof Anthropic.APIError>): string {
+  const body = err.error as { error?: { type?: unknown; message?: unknown } } | undefined;
+  const type = typeof body?.error?.type === "string" ? body.error.type : "";
+  const msg = typeof body?.error?.message === "string" ? body.error.message : "";
+  const clean = `${type}${type && msg ? ": " : ""}${msg}`.replace(/sk-ant-\S+/g, "sk-ant-…").slice(0, 200);
+  return ` (Kod ${err.status ?? "?"}${clean ? ` · ${clean}` : ""})`;
+}
+
 function mapError(err: unknown): ExtractResult {
-  if (err instanceof Anthropic.AuthenticationError) return fail("auth", MESSAGES.auth);
-  if (err instanceof Anthropic.PermissionDeniedError) return fail("auth", MESSAGES.auth);
+  if (err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.PermissionDeniedError) {
+    return fail("auth", MESSAGES.auth + serverDetail(err));
+  }
   if (err instanceof Anthropic.RateLimitError) return fail("other", MESSAGES.rateLimit);
   if (err instanceof Anthropic.APIConnectionError) return fail("network", MESSAGES.network);
   if (err instanceof Anthropic.APIError && err.status !== undefined) {
